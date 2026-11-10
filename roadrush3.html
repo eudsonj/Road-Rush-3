@@ -308,15 +308,12 @@
       </div>
       <h2 class="text-2xl font-black text-cyan-300 tracking-wider mb-2">VIRAR A TELA</h2>
       <p class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4">
-        Para melhor experiência em celulares, gire o aparelho para o <span class="text-cyan-400 font-bold">Modo Paisagem (Horizontal)</span>.
+        O jogo exige que o celular esteja no <span class="text-cyan-400 font-bold">Modo Paisagem (Horizontal)</span> para iniciar e jogar.
       </p>
-      <div class="flex items-center gap-2 text-[10px] text-cyan-400/80 font-mono bg-slate-900/80 px-3 py-1.5 rounded-full border border-cyan-500/30 mb-4">
-        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-        AGUARDANDO ROTAÇÃO DO CELULAR...
+      <div class="flex items-center gap-2 text-[10px] text-cyan-400/80 font-mono bg-slate-900/80 px-4 py-2 rounded-full border border-cyan-500/30">
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+        🔒 GIRE O CELULAR PARA DESBLOQUEAR O JOGO
       </div>
-      <button onclick="startGame()" class="px-5 py-2.5 rounded-xl text-xs font-bold neon-btn text-cyan-200 pointer-events-auto cursor-pointer">
-        JOGAR AGORA ➔
-      </button>
     </div>
   </div>
 
@@ -1741,6 +1738,11 @@
     }
 
     function startGame() {
+      if (isPortraitMode()) {
+        checkOrientation();
+        return;
+      }
+
       try {
         if (soundEngine) {
           soundEngine.init();
@@ -2202,13 +2204,20 @@
       return isUAMobile || isIPadOS || isTouchScreen;
     }
 
+    function isPortraitMode() {
+      return isMobileDevice() && (window.innerHeight > window.innerWidth);
+    }
+
     function checkOrientation() {
       const overlay = document.getElementById('rotate-device-overlay');
       if (!overlay) return;
-      const isPortrait = window.innerHeight > window.innerWidth;
-      if (isMobileDevice() && isPortrait) {
+      if (isPortraitMode()) {
         overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
+        if (running) {
+          running = false;
+          soundEngine.stopEngine();
+        }
       } else {
         overlay.classList.add('hidden');
         overlay.style.display = 'none';
@@ -2231,6 +2240,10 @@
         keys.down = true;
       }
       if (e.code === 'Space' || e.code === 'Enter') {
+        if (isPortraitMode()) {
+          checkOrientation();
+          return;
+        }
         if (!running) {
           const introEl = document.getElementById('intro-screen');
           if (introEl && !introEl.classList.contains('hidden') && introEl.style.display !== 'none') {
