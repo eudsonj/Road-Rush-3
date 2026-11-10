@@ -699,6 +699,7 @@
     let speedKmH = 120;
     let baseSpeed = 120;
     let distance = 0;
+    let currentNitroBoost = 0;
 
     const BIOMES = [
       { id: 'urban', name: 'AUTOESTRADA URBANA', icon: '🌆', skyColor: 0x081026, fogColor: 0x081026, sunColor: 0x88ccff, badgeBorder: 'border-cyan-500/40', badgeText: 'text-cyan-300' },
@@ -1784,6 +1785,7 @@
       distance = 0;
       baseSpeed = 120;
       speedKmH = 120;
+      currentNitroBoost = 0;
       player.lane = 1;
       player.x = LANE_X[1];
       player.targetX = LANE_X[1];
@@ -1893,11 +1895,18 @@
         if (activePowerups.doubleTimer > 0) activePowerups.doubleTimer = Math.max(0, activePowerups.doubleTimer - dt);
         updatePowerupHUD();
 
-        let targetSpeed = baseSpeed;
-        if (keys.up) targetSpeed = baseSpeed + 120;
-        else if (keys.down) targetSpeed = 10;
+        // Acúmulo e desaceleração suave do efeito Nitro
+        const maxNitroBoost = 150;
+        if (keys.up) {
+          currentNitroBoost = Math.min(maxNitroBoost, currentNitroBoost + dt * 85);
+        } else {
+          currentNitroBoost = Math.max(0, currentNitroBoost - dt * 110);
+        }
 
-        speedKmH += (targetSpeed - speedKmH) * Math.min(1, dt * 3.5);
+        let targetSpeed = baseSpeed + currentNitroBoost;
+        if (keys.down) targetSpeed = 10;
+
+        speedKmH += (targetSpeed - speedKmH) * Math.min(1, dt * 2.8);
         speedKmH = Math.max(10, speedKmH);
         baseSpeed += dt * diffCfg.speedAccel;
 
@@ -2267,10 +2276,12 @@
         const btn = document.getElementById(id);
         if (!btn) return;
         const handleStart = (e) => {
+          if (isCustomizing) return; // Não dispara ações de corrida se estiver editando os controles
           e.preventDefault();
           onStart();
         };
         const handleEnd = (e) => {
+          if (isCustomizing) return;
           e.preventDefault();
           if (onEnd) onEnd();
         };
@@ -2288,111 +2299,137 @@
     }
 
     /* =========================================================================
-       CONTROLS CUSTOMIZER SYSTEM
+       CONTROLS CUSTOMIZER SYSTEM (SISTEMA DE EDIÇÃO DE CONTROLES)
        ========================================================================= */
     let isCustomizing = false;
-    let controlsScale = 1.0;
+    let controlsConfig = {
+      scale: 1.0,
+      steering: { x: 0, y: 0 },
+      speed: { x: 0, y: 0 }
+    };
+    let activeDragKey = null;
+    let dragStartX = 0, dragStartY = 0;
+
+    function saveControlsConfig() {
+      try {
+        localStorage.setItem('roadrush_controls_config', JSON.stringify(controlsConfig));
+      } catch (e) {}
+    }
+
+    function loadControlsConfig() {
+      try {
+        const saved = localStorage.getItem('roadrush_controls_config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.scale === 'number') {
+            controlsConfig = parsed;
+          }
+        }
+      } catch (e) {}
+      applyControlTransforms();
+    }
+
+    function applyControlTransforms() {
+      const sg = document.getElementById('steering-group');
+      const spg = document.getElementById('speed-group');
+      if (sg) {
+        sg.style.transform = `translate3d(${controlsConfig.steering.x}px, ${controlsConfig.steering.y}px, 0px) scale(${controlsConfig.scale})`;
+      }
+      if (spg) {
+        spg.style.transform = `translate3d(${controlsConfig.speed.x}px, ${controlsConfig.speed.y}px, 0px) scale(${controlsConfig.scale})`;
+      }
+    }
 
     function openControlsCustomizer() {
       isCustomizing = true;
-      document.getElementById('start-screen').classList.add('hidden');
-      document.getElementById('customizer-screen').classList.remove('hidden');
-      const tc = document.getElementById('touch-controls');
-      if (tc) {
-        tc.classList.remove('hidden');
-        tc.style.display = 'block';
-      }
-      makeDraggable('steering-group');
-      makeDraggable('speed-group');
+      setScreenVisible('start-screen', false);
+      setScreenVisible('customizer-screen', true);
+      setScreenVisible('touch-controls', true, 'block');
+
+      const slider = document.getElementById('controls-scale-slider');
+      if (slider) slider.value = controlsConfig.scale;
+      const txt = document.getElementById('scale-val-text');
+      if (txt) txt.innerText = `${Math.round(controlsConfig.scale * 100)}%`;
+
+      applyControlTransforms();
     }
 
     function closeControlsCustomizer() {
       isCustomizing = false;
-      document.getElementById('customizer-screen').classList.add('hidden');
-      document.getElementById('start-screen').classList.remove('hidden');
+      saveControlsConfig();
+      setScreenVisible('customizer-screen', false);
+      setScreenVisible('start-screen', true);
+      if (!running) {
+        setScreenVisible('touch-controls', false, 'block');
+      }
     }
 
     function resetControlsConfig() {
-      const sg = document.getElementById('steering-group');
-      const spg = document.getElementById('speed-group');
-      if (sg) {
-        sg.style.left = '16px';
-        sg.style.bottom = '24px';
-        sg.style.top = '';
-        sg.style.right = '';
-        sg.style.transform = 'scale(1)';
-      }
-      if (spg) {
-        spg.style.right = '16px';
-        spg.style.bottom = '24px';
-        spg.style.top = '';
-        spg.style.left = '';
-        spg.style.transform = 'scale(1)';
-      }
-      controlsScale = 1.0;
+      controlsConfig = {
+        scale: 1.0,
+        steering: { x: 0, y: 0 },
+        speed: { x: 0, y: 0 }
+      };
+      saveControlsConfig();
+      applyControlTransforms();
+
       const slider = document.getElementById('controls-scale-slider');
       if (slider) slider.value = 1.0;
       const txt = document.getElementById('scale-val-text');
       if (txt) txt.innerText = '100%';
     }
 
-    function makeDraggable(elementId) {
-      const el = document.getElementById(elementId);
-      if (!el) return;
-      let active = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
+    function setupDragListeners() {
+      const setupGroup = (id, key) => {
+        const el = document.getElementById(id);
+        if (!el) return;
 
-      const dragStart = (e) => {
-        if (!isCustomizing) return;
-        if (e.type === 'touchstart') {
-          initialX = e.touches[0].clientX - xOffset;
-          initialY = e.touches[0].clientY - yOffset;
-        } else {
-          initialX = e.clientX - xOffset;
-          initialY = e.clientY - yOffset;
+        const onStart = (e) => {
+          if (!isCustomizing) return;
+          activeDragKey = key;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          dragStartX = clientX - controlsConfig[key].x;
+          dragStartY = clientY - controlsConfig[key].y;
+        };
+
+        el.addEventListener('mousedown', onStart);
+        el.addEventListener('touchstart', onStart, { passive: true });
+      };
+
+      setupGroup('steering-group', 'steering');
+      setupGroup('speed-group', 'speed');
+
+      const onMove = (e) => {
+        if (!activeDragKey || !isCustomizing) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        controlsConfig[activeDragKey].x = clientX - dragStartX;
+        controlsConfig[activeDragKey].y = clientY - dragStartY;
+        applyControlTransforms();
+      };
+
+      const onEnd = () => {
+        if (activeDragKey) {
+          activeDragKey = null;
+          saveControlsConfig();
         }
-        active = true;
       };
 
-      const dragEnd = () => {
-        initialX = currentX;
-        initialY = currentY;
-        active = false;
-      };
-
-      const drag = (e) => {
-        if (!active || !isCustomizing) return;
-        e.preventDefault();
-        if (e.type === 'touchmove') {
-          currentX = e.touches[0].clientX - initialX;
-          currentY = e.touches[0].clientY - initialY;
-        } else {
-          currentX = e.clientX - initialX;
-          currentY = e.clientY - initialY;
-        }
-        xOffset = currentX;
-        yOffset = currentY;
-        el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0px) scale(${controlsScale})`;
-      };
-
-      el.removeEventListener('mousedown', dragStart);
-      el.removeEventListener('touchstart', dragStart);
-      el.addEventListener('mousedown', dragStart, false);
-      el.addEventListener('touchstart', dragStart, { passive: false });
-      window.addEventListener('mouseup', dragEnd, false);
-      window.addEventListener('touchend', dragEnd, false);
-      window.addEventListener('mousemove', drag, false);
-      window.addEventListener('touchmove', drag, { passive: false });
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('touchmove', onMove, { passive: true });
+      window.addEventListener('mouseup', onEnd);
+      window.addEventListener('touchend', onEnd);
     }
 
     const scaleSlider = document.getElementById('controls-scale-slider');
     if (scaleSlider) {
       scaleSlider.addEventListener('input', (e) => {
-        controlsScale = parseFloat(e.target.value);
-        document.getElementById('scale-val-text').innerText = `${Math.round(controlsScale * 100)}%`;
-        const sg = document.getElementById('steering-group');
-        const spg = document.getElementById('speed-group');
-        if (sg) sg.style.transform = `scale(${controlsScale})`;
-        if (spg) spg.style.transform = `scale(${controlsScale})`;
+        controlsConfig.scale = parseFloat(e.target.value);
+        const txt = document.getElementById('scale-val-text');
+        if (txt) txt.innerText = `${Math.round(controlsConfig.scale * 100)}%`;
+        applyControlTransforms();
+        saveControlsConfig();
       });
     }
 
@@ -2424,6 +2461,8 @@
     window.onload = function () {
       initThree();
       setupTouchControls();
+      loadControlsConfig();
+      setupDragListeners();
       checkOrientation();
 
       // Exibe a tela de Intro cinematográfica por padrão
