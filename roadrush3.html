@@ -1812,14 +1812,14 @@
 
     function moveLeft() {
       if (!running || oilSpinTimer > 0) return;
-      player.lane = Math.min(LANE_COUNT - 1, player.lane + 1);
+      player.lane = Math.max(0, player.lane - 1);
       player.targetX = LANE_X[player.lane];
       soundEngine.playChime();
     }
 
     function moveRight() {
       if (!running || oilSpinTimer > 0) return;
-      player.lane = Math.max(0, player.lane - 1);
+      player.lane = Math.min(LANE_COUNT - 1, player.lane + 1);
       player.targetX = LANE_X[player.lane];
       soundEngine.playChime();
     }
@@ -2236,11 +2236,11 @@
     window.addEventListener('keydown', (e) => {
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
         keys.left = true;
-        moveLeft();
+        moveRight(); // Controles invertidos: tecla esquerda move para a direita
       }
       if (e.code === 'ArrowRight' || e.code === 'KeyD') {
         keys.right = true;
-        moveRight();
+        moveLeft(); // Controles invertidos: tecla direita move para a esquerda
       }
       if (e.code === 'ArrowUp' || e.code === 'KeyW') {
         keys.up = true;
@@ -2275,40 +2275,59 @@
       const bindTouch = (id, onStart, onEnd) => {
         const btn = document.getElementById(id);
         if (!btn) return;
+
+        let lastTouchTime = 0;
+
         const handleStart = (e) => {
-          if (isCustomizing) return; // Não dispara ações de corrida se estiver editando os controles
-          e.preventDefault();
+          if (isCustomizing) return;
+          if (e.cancelable) e.preventDefault();
+
+          const now = performance.now();
+          if (now - lastTouchTime < 140) return;
+          lastTouchTime = now;
+
           onStart();
         };
+
         const handleEnd = (e) => {
           if (isCustomizing) return;
-          e.preventDefault();
+          if (e.cancelable) e.preventDefault();
           if (onEnd) onEnd();
         };
+
         btn.addEventListener('pointerdown', handleStart);
         btn.addEventListener('pointerup', handleEnd);
-        btn.addEventListener('pointerleave', handleEnd);
-        btn.addEventListener('touchstart', handleStart, { passive: false });
-        btn.addEventListener('touchend', handleEnd, { passive: false });
+        btn.addEventListener('pointercancel', handleEnd);
       };
 
-      bindTouch('btn-left', () => { keys.left = true; moveLeft(); }, () => { keys.left = false; });
-      bindTouch('btn-right', () => { keys.right = true; moveRight(); }, () => { keys.right = false; });
+      // Controles invertidos de toque: botão esquerdo move para a direita e botão direito move para a esquerda
+      bindTouch('btn-left', () => { keys.left = true; moveRight(); }, () => { keys.left = false; });
+      bindTouch('btn-right', () => { keys.right = true; moveLeft(); }, () => { keys.right = false; });
       bindTouch('btn-brake', () => { keys.down = true; }, () => { keys.down = false; });
       bindTouch('btn-nitro', () => { keys.up = true; }, () => { keys.up = false; });
     }
 
     /* =========================================================================
-       CONTROLS CUSTOMIZER SYSTEM (SISTEMA DE EDIÇÃO DE CONTROLES)
+       CONTROLS CUSTOMIZER & INITIALIZATION LOGIC
        ========================================================================= */
     let isCustomizing = false;
     let controlsConfig = {
-      scale: 1.0,
-      steering: { x: 0, y: 0 },
-      speed: { x: 0, y: 0 }
+      steeringX: 0,
+      steeringY: 0,
+      speedX: 0,
+      speedY: 0,
+      scale: 1.0
     };
-    let activeDragKey = null;
-    let dragStartX = 0, dragStartY = 0;
+
+    function loadControlsConfig() {
+      try {
+        const saved = localStorage.getItem('roadrush_controls_config');
+        if (saved) {
+          controlsConfig = { ...controlsConfig, ...JSON.parse(saved) };
+        }
+      } catch (e) {}
+      applyControlsConfig();
+    }
 
     function saveControlsConfig() {
       try {
@@ -2316,28 +2335,20 @@
       } catch (e) {}
     }
 
-    function loadControlsConfig() {
-      try {
-        const saved = localStorage.getItem('roadrush_controls_config');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed.scale === 'number') {
-            controlsConfig = parsed;
-          }
-        }
-      } catch (e) {}
-      applyControlTransforms();
-    }
+    function applyControlsConfig() {
+      const steeringGroup = document.getElementById('steering-group');
+      const speedGroup = document.getElementById('speed-group');
+      const slider = document.getElementById('controls-scale-slider');
+      const valText = document.getElementById('scale-val-text');
 
-    function applyControlTransforms() {
-      const sg = document.getElementById('steering-group');
-      const spg = document.getElementById('speed-group');
-      if (sg) {
-        sg.style.transform = `translate3d(${controlsConfig.steering.x}px, ${controlsConfig.steering.y}px, 0px) scale(${controlsConfig.scale})`;
+      if (steeringGroup) {
+        steeringGroup.style.transform = `translate3d(${controlsConfig.steeringX}px, ${controlsConfig.steeringY}px, 0) scale(${controlsConfig.scale})`;
       }
-      if (spg) {
-        spg.style.transform = `translate3d(${controlsConfig.speed.x}px, ${controlsConfig.speed.y}px, 0px) scale(${controlsConfig.scale})`;
+      if (speedGroup) {
+        speedGroup.style.transform = `translate3d(${controlsConfig.speedX}px, ${controlsConfig.speedY}px, 0) scale(${controlsConfig.scale})`;
       }
+      if (slider) slider.value = controlsConfig.scale;
+      if (valText) valText.innerText = `${Math.round(controlsConfig.scale * 100)}%`;
     }
 
     function openControlsCustomizer() {
@@ -2345,100 +2356,78 @@
       setScreenVisible('start-screen', false);
       setScreenVisible('customizer-screen', true);
       setScreenVisible('touch-controls', true, 'block');
-
-      const slider = document.getElementById('controls-scale-slider');
-      if (slider) slider.value = controlsConfig.scale;
-      const txt = document.getElementById('scale-val-text');
-      if (txt) txt.innerText = `${Math.round(controlsConfig.scale * 100)}%`;
-
-      applyControlTransforms();
+      setupDraggableControls();
     }
 
     function closeControlsCustomizer() {
       isCustomizing = false;
       saveControlsConfig();
       setScreenVisible('customizer-screen', false);
+      setScreenVisible('touch-controls', false);
       setScreenVisible('start-screen', true);
-      if (!running) {
-        setScreenVisible('touch-controls', false, 'block');
-      }
     }
 
     function resetControlsConfig() {
-      controlsConfig = {
-        scale: 1.0,
-        steering: { x: 0, y: 0 },
-        speed: { x: 0, y: 0 }
-      };
+      controlsConfig = { steeringX: 0, steeringY: 0, speedX: 0, speedY: 0, scale: 1.0 };
       saveControlsConfig();
-      applyControlTransforms();
-
-      const slider = document.getElementById('controls-scale-slider');
-      if (slider) slider.value = 1.0;
-      const txt = document.getElementById('scale-val-text');
-      if (txt) txt.innerText = '100%';
+      applyControlsConfig();
     }
 
-    function setupDragListeners() {
-      const setupGroup = (id, key) => {
-        const el = document.getElementById(id);
+    function setupDraggableControls() {
+      const enableDrag = (groupId, keyPrefix) => {
+        const el = document.getElementById(groupId);
         if (!el) return;
 
-        const onStart = (e) => {
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let origX = 0, origY = 0;
+
+        const onPointerDown = (e) => {
           if (!isCustomizing) return;
-          activeDragKey = key;
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          dragStartX = clientX - controlsConfig[key].x;
-          dragStartY = clientY - controlsConfig[key].y;
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          origX = controlsConfig[`${keyPrefix}X`] || 0;
+          origY = controlsConfig[`${keyPrefix}Y`] || 0;
+          if (e.cancelable) e.preventDefault();
         };
 
-        el.addEventListener('mousedown', onStart);
-        el.addEventListener('touchstart', onStart, { passive: true });
+        const onPointerMove = (e) => {
+          if (!isDragging || !isCustomizing) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          controlsConfig[`${keyPrefix}X`] = origX + dx;
+          controlsConfig[`${keyPrefix}Y`] = origY + dy;
+          applyControlsConfig();
+        };
+
+        const onPointerUp = () => {
+          isDragging = false;
+        };
+
+        el.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
       };
 
-      setupGroup('steering-group', 'steering');
-      setupGroup('speed-group', 'speed');
-
-      const onMove = (e) => {
-        if (!activeDragKey || !isCustomizing) return;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        controlsConfig[activeDragKey].x = clientX - dragStartX;
-        controlsConfig[activeDragKey].y = clientY - dragStartY;
-        applyControlTransforms();
-      };
-
-      const onEnd = () => {
-        if (activeDragKey) {
-          activeDragKey = null;
-          saveControlsConfig();
-        }
-      };
-
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('touchmove', onMove, { passive: true });
-      window.addEventListener('mouseup', onEnd);
-      window.addEventListener('touchend', onEnd);
+      enableDrag('steering-group', 'steering');
+      enableDrag('speed-group', 'speed');
     }
 
     const scaleSlider = document.getElementById('controls-scale-slider');
     if (scaleSlider) {
       scaleSlider.addEventListener('input', (e) => {
         controlsConfig.scale = parseFloat(e.target.value);
-        const txt = document.getElementById('scale-val-text');
-        if (txt) txt.innerText = `${Math.round(controlsConfig.scale * 100)}%`;
-        applyControlTransforms();
-        saveControlsConfig();
+        applyControlsConfig();
       });
     }
 
     function onWindowResize() {
-      if (isWebGLAvailable && renderer && camera) {
+      if (isWebGLAvailable && camera && renderer) {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-      } else if (canvas2D) {
+      } else if (!isWebGLAvailable && canvas2D) {
         canvas2D.width = window.innerWidth;
         canvas2D.height = window.innerHeight;
       }
@@ -2446,67 +2435,16 @@
     }
 
     window.addEventListener('resize', onWindowResize);
-    window.addEventListener('orientationchange', () => {
-      setTimeout(onWindowResize, 200);
-    });
-    if (window.screen && window.screen.orientation) {
-      window.screen.orientation.addEventListener('change', () => {
-        setTimeout(onWindowResize, 200);
-      });
-    }
+    window.addEventListener('orientationchange', checkOrientation);
 
-    /* =========================================================================
-       INITIALIZATION ON PAGE LOAD
-       ========================================================================= */
-    window.onload = function () {
+    window.addEventListener('load', () => {
       initThree();
       setupTouchControls();
       loadControlsConfig();
-      setupDragListeners();
       checkOrientation();
-
-      // Exibe a tela de Intro cinematográfica por padrão
       showIntroScreen();
-
-      // Listeners diretos de touch/clique nos botões das telas
-      const startBtn = document.getElementById('start-btn');
-      if (startBtn) {
-        startBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          startGame();
-        });
-        startBtn.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
-          startGame();
-        });
-      }
-
-      const restartBtn = document.getElementById('restart-btn');
-      if (restartBtn) {
-        restartBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          startGame();
-        });
-        restartBtn.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
-          startGame();
-        });
-      }
-
-      const menuBtn = document.getElementById('menu-btn');
-      if (menuBtn) {
-        menuBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          goToMainMenu();
-        });
-        menuBtn.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
-          goToMainMenu();
-        });
-      }
-
       animate();
-    };
+    });
   </script>
 </body>
 </html>
