@@ -12,14 +12,25 @@
   <meta name="apple-mobile-web-app-title" content="RoadRush 3">
   <meta name="theme-color" content="#050811">
 
-  <!-- Favicon e Ícone do App -->
-  <link rel="icon" type="image/x-icon" href="image_85ba3d.jpg">
-  <link rel="shortcut icon" type="image/jpeg" href="image_85ba3d.jpg">
-  <link rel="apple-touch-icon" href="image_85ba3d.jpg">
+  <!-- Favicon e Ícones para Tela de Início (iOS, Android & Atalho) -->
+  <link id="app-favicon" rel="icon" type="image/x-icon" href="/caminho/para/o/seu/logo.ico">
+  <link id="app-shortcut-icon" rel="shortcut icon" href="/caminho/para/o/seu/logo.ico">
+  <link id="apple-touch-icon" rel="apple-touch-icon" sizes="180x180" href="/caminho/para/o/seu/logo.ico">
+  <link id="apple-touch-icon-precomposed" rel="apple-touch-icon-precomposed" href="/caminho/para/o/seu/logo.ico">
 
-  <!-- Manifest PWA Dinâmico (Permite instalar como App sem precisar de arquivos externos) -->
+  <!-- Meta Tags para Compartilhamento de Link (WhatsApp, Telegram, Redes Sociais) -->
+  <meta property="og:title" content="RoadRush 3 - Biturbo Edition">
+  <meta property="og:description" content="Jogo de Corrida 3D Arcade na Rodovia">
+  <meta id="og-image" property="og:image" content="/caminho/para/o/seu/logo.ico">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta id="twitter-image" name="twitter:image" content="/caminho/para/o/seu/logo.ico">
+
+  <!-- Manifest PWA Dinâmico (Sincroniza a logo do app na Tela de Início do celular) -->
   <script>
     (function() {
+      // Altere esta variável se desejar mudar o caminho da logo em um só lugar
+      const LOGO_PATH = "/caminho/para/o/seu/logo.ico";
+
       const manifest = {
         name: "RoadRush 3 - Biturbo Edition",
         short_name: "RoadRush3",
@@ -30,14 +41,16 @@
         theme_color: "#050811",
         icons: [
           {
-            src: "image_85ba3d.jpg",
+            src: LOGO_PATH,
             sizes: "192x192",
-            type: "image/jpeg"
+            type: "image/png",
+            purpose: "any maskable"
           },
           {
-            src: "image_85ba3d.jpg",
+            src: LOGO_PATH,
             sizes: "512x512",
-            type: "image/jpeg"
+            type: "image/png",
+            purpose: "any maskable"
           }
         ]
       };
