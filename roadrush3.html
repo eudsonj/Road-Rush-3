@@ -2192,7 +2192,14 @@
        ========================================================================= */
     function isMobileDevice() {
       const ua = navigator.userAgent || navigator.vendor || window.opera;
-      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      // Checagem padrão via User Agent
+      const isUAMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      // Checagem especial para iPadOS 13+ (que se identifica como MacIntel mas possui tela sensível ao toque)
+      const isIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      // Checagem genérica para dispositivos de toque com tela de celular/tablet
+      const isTouchScreen = ('ontouchstart' in window || navigator.maxTouchPoints > 0) && Math.min(window.innerWidth, window.innerHeight) <= 1024;
+      
+      return isUAMobile || isIPadOS || isTouchScreen;
     }
 
     function checkOrientation() {
@@ -2392,6 +2399,11 @@
     window.addEventListener('orientationchange', () => {
       setTimeout(onWindowResize, 200);
     });
+    if (window.screen && window.screen.orientation) {
+      window.screen.orientation.addEventListener('change', () => {
+        setTimeout(onWindowResize, 200);
+      });
+    }
 
     /* =========================================================================
        INITIALIZATION ON PAGE LOAD
