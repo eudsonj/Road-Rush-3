@@ -5,6 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>RoadRush 3 - Arcade Highway Racing</title>
   
+  <!-- Configurações para Aplicativo Mobile / PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RoadRush 3">
+  <meta name="theme-color" content="#050811">
+
+  <!-- Favicon e Ícone do App -->
+  <link rel="icon" type="image/x-icon" href="image_85ba3d.jpg">
+  <link rel="shortcut icon" type="image/jpeg" href="image_85ba3d.jpg">
+  <link rel="apple-touch-icon" href="image_85ba3d.jpg">
+
+  <!-- Manifest PWA Dinâmico (Permite instalar como App sem precisar de arquivos externos) -->
+  <script>
+    (function() {
+      const manifest = {
+        name: "RoadRush 3 - Biturbo Edition",
+        short_name: "RoadRush3",
+        start_url: "./",
+        display: "standalone",
+        orientation: "landscape",
+        background_color: "#050811",
+        theme_color: "#050811",
+        icons: [
+          {
+            src: "image_85ba3d.jpg",
+            sizes: "192x192",
+            type: "image/jpeg"
+          },
+          {
+            src: "image_85ba3d.jpg",
+            sizes: "512x512",
+            type: "image/jpeg"
+          }
+        ]
+      };
+      const stringManifest = JSON.stringify(manifest);
+      const blob = new Blob([stringManifest], {type: 'application/json'});
+      const manifestURL = URL.createObjectURL(blob);
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestURL;
+      document.head.appendChild(link);
+    })();
+  </script>
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -175,7 +221,7 @@
   <div id="intro-screen" onclick="showStartScreen()" class="absolute inset-0 bg-slate-950/40 backdrop-blur-sm flex flex-col items-center justify-between p-6 z-50 transition-opacity duration-500">
     <div class="mt-8 flex flex-col items-center text-center max-w-lg w-full pointer-events-auto cursor-pointer">
       <div class="text-xs tracking-[0.3em] text-cyan-400 font-bold mb-2 animate-pulse">▲ HIGHWAY ARCADE EXPERIENCE ▲</div>
-      <h1 class="text-5xl sm:text-7xl font-black italic tracking-wider neon-text-cyan mb-2 transform hover:scale-105 transition-transform">ROADRUSH 3</h1>
+      <h1 class="text-4xl sm:text-6xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-cyan-500 drop-shadow-[0_0_25px_rgba(0,255,255,0.8)] my-3 transform -skew-x-6">ROAD RUSH 3</h1>
       <p class="text-xs sm:text-sm text-cyan-300/80 tracking-[0.4em] font-semibold mb-2">BITURBO EDITION</p>
       
       <div class="relative w-40 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent mb-4 animate-pulse"></div>
@@ -196,7 +242,7 @@
       
       <!-- Left Column -->
       <div class="start-col-left w-full flex flex-col items-center">
-        <h1 class="text-3xl sm:text-5xl font-black italic tracking-wider neon-text-cyan mb-1">ROADRUSH 3</h1>
+        <h2 class="text-3xl sm:text-4xl font-black italic tracking-wider text-cyan-300 drop-shadow-[0_0_15px_rgba(0,255,255,0.8)] my-2 -skew-x-6">ROAD RUSH 3</h2>
         <p class="text-[10px] sm:text-xs text-cyan-300/80 tracking-widest mb-3 sm:mb-6">HIGHWAY ARCADE RACER</p>
 
         <!-- Car Color Selector -->
